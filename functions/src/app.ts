@@ -1,5 +1,5 @@
 import express from 'express';
-import cors from 'cors';
+// import cors from 'cors';
 import subscriptionRoutes from './routes/subscription';
 import productsRoutes from './routes/products';
 import webhookRoutes from './routes/webhook';
@@ -12,7 +12,7 @@ const app = express();
 app.use('/api/webhook', express.raw({ type: 'application/json' }));
 
 // Middlewares globais
-app.use(cors({ origin: true }));
+// app.use(cors({ origin: true }));
 app.use(express.json());
 
 // Rotas

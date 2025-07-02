@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
-import { stripe } from '../utils/stripe';
 import { saveSubscriptionToFirestore } from './saveSubscription';
+import stripe from '../utils/stripe';
 
 export const createSubscriptionService = async ({
     priceId,

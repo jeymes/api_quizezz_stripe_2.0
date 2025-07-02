@@ -1,4 +1,4 @@
-import { stripe } from "../utils/stripe";
+import stripe from "../utils/stripe";
 
 export const getProductsWithPrices = async (req: any, res: any) => {
     try {
