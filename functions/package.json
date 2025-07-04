@@ -20,6 +20,7 @@
     "stripe": "^18.3.0"
   },
   "devDependencies": {
+    "@types/stripe": "^8.0.416",
     "firebase-functions-test": "^3.1.0",
     "typescript": "^5.7.3"
   },
