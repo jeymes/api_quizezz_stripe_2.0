@@ -3,9 +3,9 @@ import stripe from '../utils/stripe';
 
 export const createCustomerAndSetupIntent = async (req: Request, res: Response) => {
     try {
-        const { name, email, userId } = req.body;
+        const { name, email } = req.body;
 
-        if (!name || !email || !userId) {
+        if (!name || !email) {
             res.status(400).json({ error: 'Campos obrigatórios ausentes' });
         }
 

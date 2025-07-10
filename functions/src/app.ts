@@ -5,6 +5,7 @@ import productsRoutes from './routes/products';
 import webhookRoutes from './routes/webhook';
 import paymentStatusRoutes from './routes/paymentStatus';
 import createCustomerRouter from './routes/createCustomer';
+import paymentIntentRouter from './routes/paymentIntent';
 
 
 const app = express();
@@ -37,5 +38,12 @@ app.use('/api', productsRoutes);
 app.use('/api', webhookRoutes);
 app.use('/api', paymentStatusRoutes);
 app.use('/api', createCustomerRouter);
+app.use('/api', paymentIntentRouter);
 
 export default app;
+
+// [1] Cria customer + setup intent-- > backend: /create-customer-and-setup-intent
+// [2] Mostra PaymentElement no front-- > <Elements />
+// [3] User insere o cartão e envia-- > form.handleSubmit()
+// [4] Usa paymentMethod + customerId-- > backend: /create-subscription
+// [5] Stripe cria assinatura + invoice-- > retorna clientSecret da invoice.payment_intent
