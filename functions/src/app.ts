@@ -5,7 +5,6 @@ import productsRoutes from './routes/products';
 import webhookRoutes from './routes/webhook';
 import paymentStatusRoutes from './routes/paymentStatus';
 import createCustomerRouter from './routes/createCustomer';
-import paymentIntentRouter from './routes/paymentIntent';
 
 
 const app = express();
@@ -38,7 +37,6 @@ app.use('/api', productsRoutes);
 app.use('/api', webhookRoutes);
 app.use('/api', paymentStatusRoutes);
 app.use('/api', createCustomerRouter);
-app.use('/api', paymentIntentRouter);
 
 export default app;
 
