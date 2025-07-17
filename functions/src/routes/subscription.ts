@@ -3,6 +3,6 @@ import { createSubscription } from '../controllers/subscription';
 
 const subscriptionRoutes = Router();
 
-subscriptionRoutes.post('/payment-sheet', createSubscription);
+subscriptionRoutes.post('/create-subscription', createSubscription);
 
 export default subscriptionRoutes;

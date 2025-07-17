@@ -1,5 +1,5 @@
 import admin from '../utils/firebase';
-import { stripe } from '../utils/stripe';
+import stripe from '../utils/stripe';
 
 export const webhookHandler = async (req: any, res: any) => {
     let event;
