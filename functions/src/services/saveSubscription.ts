@@ -1,5 +1,7 @@
 import { FieldValue } from "firebase-admin/firestore";
 import admin from "../utils/firebase";
+import { sendWelcomeEmail } from "../utils/sendEmail";
+import { generateRandomPassword } from "../utils/passwordUtils";
 
 interface SaveSubscriptionInput {
     customerId: string;
@@ -19,13 +21,17 @@ export const saveSubscriptionToFirestore = async ({
 
     try {
         let userRecord;
+
         try {
             userRecord = await auth.getUserByEmail(email);
             console.log(`Usuário já existe no Auth: ${userRecord.uid}, atualizando dados.`);
         } catch (err: any) {
             if (err.code === "auth/user-not-found") {
-                userRecord = await auth.createUser({ email });
+                const password = generateRandomPassword(); // 🔑 Senha temporária
+                userRecord = await auth.createUser({ email, password });
                 console.log(`Usuário criado no Auth: ${userRecord.uid}`);
+
+                await sendWelcomeEmail(email, name, password); // 📧 Envia e-mail com senha
             } else {
                 throw err;
             }
@@ -33,7 +39,7 @@ export const saveSubscriptionToFirestore = async ({
 
         const uid = userRecord.uid;
 
-        // Atualiza ou cria dados do usuário no Firestore
+        // Salva dados do usuário no Firestore
         await db.collection("users").doc(uid).set(
             {
                 email,
@@ -46,7 +52,7 @@ export const saveSubscriptionToFirestore = async ({
             { merge: true }
         );
 
-        // Atualiza ou cria a assinatura vinculada ao uid
+        // Salva dados da assinatura no Firestore
         await db.collection("subscriptions").doc(uid).set(
             {
                 userId: uid,
