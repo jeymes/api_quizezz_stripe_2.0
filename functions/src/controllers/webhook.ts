@@ -17,35 +17,32 @@ export const webhookHandler = async (req: any, res: any) => {
     }
 
     try {
-        // Verifica a assinatura do webhook
         event = stripe.webhooks.constructEvent(
-            (req as any).rawBody,  // Cast para any para ignorar o erro de tipo
+            (req as any).rawBody,
             stripeSignature,
             process.env.STRIPE_ENDPOINT_SECRET as string
         );
 
         console.log('Evento recebido:', event);
 
-        // Trabalhe com o objeto de evento
         const dataObject = event.data.object as { id: string };
         const { id } = dataObject;
 
-        // Verifique os tipos de evento do Stripe que você deseja tratar
         switch (event.type) {
             case 'customer.subscription.created':
             case 'customer.subscription.updated':
-                await handleSubscriptionCreated(dataObject, res);
+                await handleSubscriptionUpsert(dataObject);
                 break;
 
             case 'customer.subscription.deleted':
-                await handleSubscriptionDeleted(dataObject, res);
+                await handleSubscriptionDeleted(dataObject);
                 break;
 
             case 'invoice.created':
             case 'invoice.finalized':
             case 'invoice.paid':
             case 'invoice.payment_succeeded':
-                await handleInvoicePaid(dataObject, res);
+                await handleInvoicePaid(dataObject);
                 await updatePaymentStatus(id, 'succeeded');
                 break;
 
@@ -56,8 +53,7 @@ export const webhookHandler = async (req: any, res: any) => {
             case 'invoice.payment_failed':
             case 'invoice.overdue':
             case 'invoice.voided':
-                handleInvoiceOverdue
-                await handleInvoiceOverdue(dataObject, res);
+                await handleInvoiceOverdue(dataObject);
                 await updatePaymentStatus(id, 'failed');
                 break;
 
@@ -68,7 +64,7 @@ export const webhookHandler = async (req: any, res: any) => {
         res.sendStatus(200);
     } catch (err: any) {
         console.error('Erro ao verificar assinatura do webhook:', err.message);
-        return res.status(400).json({ error: 'Erro ao processar webhook', details: err.message });
+        res.status(400).json({ error: 'Erro ao processar webhook', details: err.message });
     }
 };
 
@@ -93,103 +89,93 @@ export const getPaymentStatus = async (paymentIntentId: string) => {
     }
 };
 
-// Funções de manipulação de eventos
-async function handleSubscriptionCreated(subscription: any, res: any) {
+// Funções auxiliares SEM receber o `res` e SEM enviar resposta HTTP
+async function handleSubscriptionUpsert(subscription: any) {
     const subscriptionId = subscription.id;
 
-    console.log(`Assinatura criada: ${subscriptionId}`);
+    const snapshot = await admin.firestore()
+        .collection('subscriptions')
+        .where('subscriptionId', '==', subscriptionId)
+        .get();
 
-    try {
-        // Buscar o documento da assinatura no Firestore com base no subscriptionId
-        const snapshot = await admin.firestore().collection('subscriptions').where('subscriptionId', '==', subscriptionId).get();
+    if (snapshot.empty) {
+        console.warn(`[Webhook] Assinatura ${subscriptionId} ainda não encontrada no Firestore. Ignorando por agora.`);
+        return; // Silenciosamente ignora e responde com 200 OK
+    }
 
-        if (snapshot.empty) {
-            console.error(`Assinatura não encontrada para o ID ${subscriptionId}`);
-            return res.status(404).send({ error: `Assinatura não encontrada para o ID ${subscriptionId}` });
-        }
-
-        // Atualiza o status da assinatura
-        const subscriptionDoc = snapshot.docs[0];
-        await subscriptionDoc.ref.update({
-            subscription: subscription,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),  // Armazenar data de criação
+    if (snapshot.empty) {
+        await admin.firestore().collection('subscriptions').add({
+            subscriptionId,
+            subscription,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-
-        res.status(200).send({ message: 'Assinatura criada com sucesso' });
-    } catch (error) {
-        console.error('Erro ao atualizar a assinatura:', error);
-        res.status(500).send({ error: 'Erro ao processar a assinatura criada' });
+        console.log(`Assinatura ${subscriptionId} criada.`);
+    } else {
+        const docRef = snapshot.docs[0].ref;
+        await docRef.update({
+            subscription,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`Assinatura ${subscriptionId} atualizada.`);
     }
 }
 
-async function handleSubscriptionDeleted(subscription: any, res: any) {
+async function handleSubscriptionDeleted(subscription: any) {
     const subscriptionId = subscription.id;
 
-    try {
-        // Buscar o documento da assinatura no Firestore com base no subscriptionId
-        const snapshot = await admin.firestore().collection('subscriptions').where('subscriptionId', '==', subscriptionId).get();
+    const snapshot = await admin.firestore()
+        .collection('subscriptions')
+        .where('subscriptionId', '==', subscriptionId)
+        .get();
 
-        if (snapshot.empty) {
-            console.error(`Assinatura não encontrada para o ID ${subscriptionId}`);
-            return res.status(404).send({ error: `Assinatura não encontrada para o ID ${subscriptionId}` });
-        }
-
-        const subscriptionDoc = snapshot.docs[0];
-        await subscriptionDoc.ref.update({
-            subscription: subscription,
-        });
-
-        res.status(200).send({ message: 'Assinatura cancelada com sucesso' });
-    } catch (error) {
-        console.error('Erro ao processar exclusão de assinatura:', error);
-        res.status(500).send({ error: 'Erro ao processar exclusão de assinatura' });
+    if (snapshot.empty) {
+        console.warn(`[Webhook] Assinatura ${subscriptionId} ainda não encontrada no Firestore. Ignorando por agora.`);
+        return; // Silenciosamente ignora e responde com 200 OK
     }
+
+    const subscriptionDoc = snapshot.docs[0];
+    await subscriptionDoc.ref.update({
+        subscription,
+    });
+
 }
 
-async function handleInvoicePaid(invoice: any, res: any) {
+async function handleInvoicePaid(invoice: any) {
     const subscriptionId = invoice.subscription;
 
-    try {
-        // Buscar o documento da assinatura no Firestore com base no subscriptionId
-        const snapshot = await admin.firestore().collection('subscriptions').where('subscriptionId', '==', subscriptionId).get();
+    const snapshot = await admin.firestore()
+        .collection('subscriptions')
+        .where('subscriptionId', '==', subscriptionId)
+        .get();
 
-        if (snapshot.empty) {
-            console.error(`Assinatura não encontrada para o ID ${subscriptionId}`);
-            return res.status(404).send({ error: `Assinatura não encontrada para o ID ${subscriptionId}` });
-        }
-
-        const subscriptionDoc = snapshot.docs[0];
-        await subscriptionDoc.ref.update({
-            invoice: invoice,
-        });
-
-        res.status(200).send({ message: 'Fatura paga processada com sucesso' });
-    } catch (error) {
-        console.error('Erro ao processar fatura paga:', error);
-        res.status(500).send({ error: 'Erro ao processar fatura paga' });
+    if (snapshot.empty) {
+        console.warn(`[Webhook] Assinatura ${subscriptionId} ainda não encontrada no Firestore. Ignorando por agora.`);
+        return; // Silenciosamente ignora e responde com 200 OK
     }
+
+    const subscriptionDoc = snapshot.docs[0];
+    await subscriptionDoc.ref.update({
+        invoice,
+    });
+
 }
 
-async function handleInvoiceOverdue(invoice: any, res: any) {
+async function handleInvoiceOverdue(invoice: any) {
     const subscriptionId = invoice.subscription;
 
-    try {
-        // Buscar o documento da assinatura no Firestore com base no subscriptionId
-        const snapshot = await admin.firestore().collection('subscriptions').where('subscriptionId', '==', subscriptionId).get();
+    const snapshot = await admin.firestore()
+        .collection('subscriptions')
+        .where('subscriptionId', '==', subscriptionId)
+        .get();
 
-        if (snapshot.empty) {
-            console.error(`Assinatura não encontrada para o ID ${subscriptionId}`);
-            return res.status(404).send({ error: `Assinatura não encontrada para o ID ${subscriptionId}` });
-        }
-
-        const subscriptionDoc = snapshot.docs[0];
-        await subscriptionDoc.ref.update({
-            invoice: invoice,
-        });
-
-        res.status(200).send({ message: 'Fatura paga processada com sucesso' });
-    } catch (error) {
-        console.error('Erro ao processar fatura paga:', error);
-        res.status(500).send({ error: 'Erro ao processar fatura paga' });
+    if (snapshot.empty) {
+        console.warn(`[Webhook] Assinatura ${subscriptionId} ainda não encontrada no Firestore. Ignorando por agora.`);
+        return; // Silenciosamente ignora e responde com 200 OK
     }
+
+    const subscriptionDoc = snapshot.docs[0];
+    await subscriptionDoc.ref.update({
+        invoice,
+    });
+
 }

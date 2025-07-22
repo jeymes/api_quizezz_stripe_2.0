@@ -1,19 +1,19 @@
 import nodemailer from "nodemailer";
 
 export const sendWelcomeEmail = async (email: string, name: string, password: string) => {
-    const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-        }
-    });
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    }
+  });
 
-    const mailOptions = {
-        from: '"Seu App" <no-reply@seuapp.com>',
-        to: email,
-        subject: "Bem-vindo ao nosso sistema",
-        html: `
+  const mailOptions = {
+    from: '"Quizezz" <no-reply@quizezz.com>',
+    to: email,
+    subject: "Bem-vindo ao nosso sistema",
+    html: `
   <div style="font-family: Arial, sans-serif; padding: 20px;">
       <h2 style="color: #333;">Olá, ${name}!</h2>
       <p>Você foi registrado com sucesso em nosso sistema.</p>
@@ -30,7 +30,7 @@ export const sendWelcomeEmail = async (email: string, name: string, password: st
       <p>Abraços,<br>Sua equipe</p>
   </div>
 `,
-    };
+  };
 
-    await transporter.sendMail(mailOptions);
+  await transporter.sendMail(mailOptions);
 };
