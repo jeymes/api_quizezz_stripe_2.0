@@ -3,7 +3,6 @@ import cors from 'cors';
 import subscriptionRoutes from './routes/subscription';
 import productsRoutes from './routes/products';
 import webhookRoutes from './routes/webhook';
-import paymentStatusRoutes from './routes/paymentStatus';
 import createCustomerRouter from './routes/createCustomer';
 
 
@@ -35,7 +34,6 @@ app.use(express.json());
 app.use('/api', subscriptionRoutes);
 app.use('/api', productsRoutes);
 app.use('/api', webhookRoutes);
-app.use('/api', paymentStatusRoutes);
 app.use('/api', createCustomerRouter);
 
 export default app;

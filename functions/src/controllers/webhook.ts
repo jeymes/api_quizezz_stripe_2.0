@@ -26,12 +26,13 @@ export const webhookHandler = async (req: any, res: any) => {
         console.log('Evento recebido:', event);
 
         const dataObject = event.data.object as { id: string };
-        const { id } = dataObject;
 
         switch (event.type) {
             case 'customer.subscription.created':
+                await handleSubscriptionCreated(dataObject);
+                break;
             case 'customer.subscription.updated':
-                await handleSubscriptionUpsert(dataObject);
+                await handleSubscriptionUpdated(dataObject);
                 break;
 
             case 'customer.subscription.deleted':
@@ -43,18 +44,15 @@ export const webhookHandler = async (req: any, res: any) => {
             case 'invoice.paid':
             case 'invoice.payment_succeeded':
                 await handleInvoicePaid(dataObject);
-                await updatePaymentStatus(id, 'succeeded');
                 break;
 
             case 'invoice.updated':
-                await updatePaymentStatus(id, 'processing');
                 break;
 
             case 'invoice.payment_failed':
             case 'invoice.overdue':
             case 'invoice.voided':
                 await handleInvoiceOverdue(dataObject);
-                await updatePaymentStatus(id, 'failed');
                 break;
 
             default:
@@ -68,29 +66,31 @@ export const webhookHandler = async (req: any, res: any) => {
     }
 };
 
-const paymentStatus = {} as any;
+async function handleSubscriptionCreated(subscription: any) {
+    const subscriptionId = subscription.id;
 
-const updatePaymentStatus = (paymentIntentId: any, status: any) => {
-    paymentStatus[paymentIntentId] = status;
-};
+    const snapshot = await admin.firestore()
+        .collection('subscriptions')
+        .where('subscriptionId', '==', subscriptionId)
+        .get();
 
-export const getPaymentStatus = async (paymentIntentId: string) => {
-    try {
-        const status = paymentStatus[paymentIntentId];
-
-        if (status !== undefined) {
-            return { success: true, paymentIntentId, status };
-        } else {
-            return { success: false, error: 'Informações de pagamento não encontradas', paymentIntentId };
-        }
-    } catch (error) {
-        console.error('Erro ao processar o status do pagamento:', error);
-        return { success: false, error: 'Erro ao processar o status do pagamento' };
+    if (!snapshot.empty) {
+        console.log(`[Webhook] Assinatura ${subscriptionId} já existe. Ignorando criação para evitar sobrescrever dados.`);
+        return; // Já existe, não cria de novo para não sobrescrever
     }
+
+    // Se não existe, cria
+    await admin.firestore().collection('subscriptions').add({
+        subscriptionId,
+        subscription,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log(`[Webhook] Assinatura ${subscriptionId} criada.`);
 };
 
-// Funções auxiliares SEM receber o `res` e SEM enviar resposta HTTP
-async function handleSubscriptionUpsert(subscription: any) {
+async function handleSubscriptionUpdated(subscription: any) {
     const subscriptionId = subscription.id;
 
     const snapshot = await admin.firestore()
@@ -99,26 +99,26 @@ async function handleSubscriptionUpsert(subscription: any) {
         .get();
 
     if (snapshot.empty) {
-        console.warn(`[Webhook] Assinatura ${subscriptionId} ainda não encontrada no Firestore. Ignorando por agora.`);
-        return; // Silenciosamente ignora e responde com 200 OK
-    }
-
-    if (snapshot.empty) {
+        console.warn(`[Webhook] Assinatura ${subscriptionId} não encontrada no update. Criando...`);
+        // Cria se não existir
         await admin.firestore().collection('subscriptions').add({
             subscriptionId,
             subscription,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-        console.log(`Assinatura ${subscriptionId} criada.`);
-    } else {
-        const docRef = snapshot.docs[0].ref;
-        await docRef.update({
-            subscription,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        console.log(`Assinatura ${subscriptionId} atualizada.`);
+        return;
     }
-}
+
+    const docRef = snapshot.docs[0].ref;
+
+    await docRef.update({
+        subscription,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log(`[Webhook] Assinatura ${subscriptionId} atualizada.`);
+};
 
 async function handleSubscriptionDeleted(subscription: any) {
     const subscriptionId = subscription.id;
@@ -138,7 +138,7 @@ async function handleSubscriptionDeleted(subscription: any) {
         subscription,
     });
 
-}
+};
 
 async function handleInvoicePaid(invoice: any) {
     const subscriptionId = invoice.subscription;
@@ -158,7 +158,7 @@ async function handleInvoicePaid(invoice: any) {
         invoice,
     });
 
-}
+};
 
 async function handleInvoiceOverdue(invoice: any) {
     const subscriptionId = invoice.subscription;
@@ -178,4 +178,4 @@ async function handleInvoiceOverdue(invoice: any) {
         invoice,
     });
 
-}
+};
