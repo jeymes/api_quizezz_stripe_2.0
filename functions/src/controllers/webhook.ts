@@ -68,49 +68,37 @@ export const webhookHandler = async (req: any, res: any) => {
 
 async function handleSubscriptionCreated(subscription: any) {
     const subscriptionId = subscription.id;
+    const docRef = admin.firestore().collection('subscriptions').doc(subscriptionId);
 
-    const snapshot = await admin.firestore()
-        .collection('subscriptions')
-        .where('subscriptionId', '==', subscriptionId)
-        .get();
-
-    if (!snapshot.empty) {
+    const doc = await docRef.get();
+    if (doc.exists) {
         console.log(`[Webhook] Assinatura ${subscriptionId} já existe. Ignorando criação para evitar sobrescrever dados.`);
-        return; // Já existe, não cria de novo para não sobrescrever
+        return; // Já existe
     }
 
-    // Se não existe, cria
-    await admin.firestore().collection('subscriptions').add({
+    await docRef.set({
         subscriptionId,
         subscription,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     console.log(`[Webhook] Assinatura ${subscriptionId} criada.`);
-};
+}
 
 async function handleSubscriptionUpdated(subscription: any) {
     const subscriptionId = subscription.id;
+    const docRef = admin.firestore().collection('subscriptions').doc(subscriptionId);
 
-    const snapshot = await admin.firestore()
-        .collection('subscriptions')
-        .where('subscriptionId', '==', subscriptionId)
-        .get();
-
-    if (snapshot.empty) {
+    const doc = await docRef.get();
+    if (!doc.exists) {
         console.warn(`[Webhook] Assinatura ${subscriptionId} não encontrada no update. Criando...`);
-        // Cria se não existir
-        await admin.firestore().collection('subscriptions').add({
+        await docRef.set({
             subscriptionId,
             subscription,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         return;
     }
-
-    const docRef = snapshot.docs[0].ref;
 
     await docRef.update({
         subscription,
@@ -118,64 +106,43 @@ async function handleSubscriptionUpdated(subscription: any) {
     });
 
     console.log(`[Webhook] Assinatura ${subscriptionId} atualizada.`);
-};
-
-async function handleSubscriptionDeleted(subscription: any) {
-    const subscriptionId = subscription.id;
-
-    const snapshot = await admin.firestore()
-        .collection('subscriptions')
-        .where('subscriptionId', '==', subscriptionId)
-        .get();
-
-    if (snapshot.empty) {
-        console.warn(`[Webhook] Assinatura ${subscriptionId} ainda não encontrada no Firestore. Ignorando por agora.`);
-        return; // Silenciosamente ignora e responde com 200 OK
-    }
-
-    const subscriptionDoc = snapshot.docs[0];
-    await subscriptionDoc.ref.update({
-        subscription,
-    });
-
-};
+}
 
 async function handleInvoicePaid(invoice: any) {
     const subscriptionId = invoice.subscription;
+    const docRef = admin.firestore().collection('subscriptions').doc(subscriptionId);
 
-    const snapshot = await admin.firestore()
-        .collection('subscriptions')
-        .where('subscriptionId', '==', subscriptionId)
-        .get();
-
-    if (snapshot.empty) {
-        console.warn(`[Webhook] Assinatura ${subscriptionId} ainda não encontrada no Firestore. Ignorando por agora.`);
-        return; // Silenciosamente ignora e responde com 200 OK
+    const doc = await docRef.get();
+    if (!doc.exists) {
+        console.warn(`[Webhook] Assinatura ${subscriptionId} ainda não encontrada. Ignorando.`);
+        return;
     }
 
-    const subscriptionDoc = snapshot.docs[0];
-    await subscriptionDoc.ref.update({
-        invoice,
-    });
-
-};
+    await docRef.update({ invoice });
+}
 
 async function handleInvoiceOverdue(invoice: any) {
     const subscriptionId = invoice.subscription;
+    const docRef = admin.firestore().collection('subscriptions').doc(subscriptionId);
 
-    const snapshot = await admin.firestore()
-        .collection('subscriptions')
-        .where('subscriptionId', '==', subscriptionId)
-        .get();
-
-    if (snapshot.empty) {
-        console.warn(`[Webhook] Assinatura ${subscriptionId} ainda não encontrada no Firestore. Ignorando por agora.`);
-        return; // Silenciosamente ignora e responde com 200 OK
+    const doc = await docRef.get();
+    if (!doc.exists) {
+        console.warn(`[Webhook] Assinatura ${subscriptionId} ainda não encontrada. Ignorando.`);
+        return;
     }
 
-    const subscriptionDoc = snapshot.docs[0];
-    await subscriptionDoc.ref.update({
-        invoice,
-    });
+    await docRef.update({ invoice });
+}
 
-};
+async function handleSubscriptionDeleted(subscription: any) {
+    const subscriptionId = subscription.id;
+    const docRef = admin.firestore().collection('subscriptions').doc(subscriptionId);
+
+    const doc = await docRef.get();
+    if (!doc.exists) {
+        console.warn(`[Webhook] Assinatura ${subscriptionId} ainda não encontrada. Ignorando.`);
+        return;
+    }
+
+    await docRef.update({ subscription });
+}

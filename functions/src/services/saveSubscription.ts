@@ -53,7 +53,7 @@ export const saveSubscriptionToFirestore = async ({
         );
 
         // Salva dados da assinatura no Firestore
-        await db.collection("subscriptions").doc(uid).set(
+        await db.collection("subscriptions").doc(subscriptionId).set(
             {
                 userId: uid,
                 customerId,
