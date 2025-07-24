@@ -65,17 +65,20 @@ export const createSubscription = async (req: Request, res: Response) => {
 
         const clientSecret = latestInvoice.confirmation_secret.client_secret;
 
-        res.json({
-            subscriptionId: subscription.id,
-            clientSecret,
-            isSetupIntent: false,
-        });
-
         await saveSubscriptionToFirestore({
             customerId: customer.id,
             subscriptionId: subscription.id,
             email,
             name
+        });
+
+        // 5. Aguarda 300ms para garantir visibilidade no Firestore (opcional, mas seguro)
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        res.json({
+            subscriptionId: subscription.id,
+            clientSecret,
+            isSetupIntent: false,
         });
 
     } catch (error: any) {
