@@ -4,6 +4,8 @@ import subscriptionRoutes from './routes/subscription';
 import productsRoutes from './routes/products';
 import webhookRoutes from './routes/webhook';
 import createCustomerRouter from './routes/createCustomer';
+import renewSubscriptionInvoiceRoutes from './routes/renewSubscriptionInvoice';
+import cancelSubscriptionRoutes from './routes/cancelSubscription';
 
 
 const app = express();
@@ -14,7 +16,9 @@ app.use('/api/webhook', express.raw({ type: 'application/json' }));
 // Middlewares globais
 const allowedOrigins = [
     'http://localhost:3000',
-    'http://localhost:5173'
+    'http://localhost:5173',
+    'quizezz.com.br',
+    'https://hosting-quizezz--quizezz-b0738.us-central1.hosted.app',
 ];
 
 app.use(cors({
@@ -35,6 +39,8 @@ app.use('/api', subscriptionRoutes);
 app.use('/api', productsRoutes);
 app.use('/api', webhookRoutes);
 app.use('/api', createCustomerRouter);
+app.use('/api', renewSubscriptionInvoiceRoutes);
+app.use('/api', cancelSubscriptionRoutes);
 
 export default app;
 
