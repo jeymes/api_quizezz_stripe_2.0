@@ -15,6 +15,9 @@ const app = express();
 // Webhook precisa ser tratado com raw ANTES de express.json
 app.use('/api/webhook', express.raw({ type: 'application/json' }));
 
+// Webhook SEM autenticação (já foi definido acima)
+app.use('/api/webhook', webhookRoutes);
+
 // Middlewares globais
 const allowedOrigins = [
     'http://localhost:3000',
@@ -47,8 +50,7 @@ app.use('/api', renewSubscriptionInvoiceRoutes);
 app.use('/api', cancelSubscriptionRoutes);
 app.use('/api', createSubscriptionWithTrialRoutes);
 app.use('/api', saveDefaultPaymentMethodRoutes);
-// Webhook SEM autenticação (já foi definido acima)
-app.use('/api/webhook', webhookRoutes);
+
 
 export default app;
 
