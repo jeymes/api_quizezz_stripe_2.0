@@ -47,6 +47,7 @@ export const saveSubscriptionToFirestore = async ({
                 id: uid,
                 customerId,
                 subscriptionId,
+                hasUsedTrial: true,
                 updatedAt: FieldValue.serverTimestamp(),
             },
             { merge: true }

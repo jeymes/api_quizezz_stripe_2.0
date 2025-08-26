@@ -9,14 +9,17 @@ import cancelSubscriptionRoutes from './routes/cancelSubscription';
 import { authenticateToken } from './authMiddleware';
 import createSubscriptionWithTrialRoutes from './routes/createSubscriptionWithTrial';
 import saveDefaultPaymentMethodRoutes from './routes/saveDefaultPaymentMethod';
+import webhookRoutesTeste from './routes/webhookTeste';
 
 const app = express();
 
 // Webhook precisa ser tratado com raw ANTES de express.json
 app.use('/api/webhook', express.raw({ type: 'application/json' }));
+app.use('/api/webhookTeste', express.raw({ type: 'application/json' }));
 
 // Webhook SEM autenticação (já foi definido acima)
 app.use('/api/webhook', webhookRoutes);
+app.use('/api/webhookTeste', webhookRoutesTeste);
 
 // Middlewares globais
 const allowedOrigins = [
