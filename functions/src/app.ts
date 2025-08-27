@@ -7,7 +7,6 @@ import createCustomerRouter from './routes/createCustomer';
 import renewSubscriptionInvoiceRoutes from './routes/renewSubscriptionInvoice';
 import cancelSubscriptionRoutes from './routes/cancelSubscription';
 import { authenticateToken } from './authMiddleware';
-import createSubscriptionWithTrialRoutes from './routes/createSubscriptionWithTrial';
 import saveDefaultPaymentMethodRoutes from './routes/saveDefaultPaymentMethod';
 import webhookRoutesTeste from './routes/webhookTeste';
 
@@ -51,7 +50,7 @@ app.use('/api', productsRoutes);
 app.use('/api', createCustomerRouter);
 app.use('/api', renewSubscriptionInvoiceRoutes);
 app.use('/api', cancelSubscriptionRoutes);
-app.use('/api', createSubscriptionWithTrialRoutes);
+app.use('/api', subscriptionRoutes);
 app.use('/api', saveDefaultPaymentMethodRoutes);
 
 

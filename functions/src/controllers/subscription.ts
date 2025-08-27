@@ -1,89 +1,113 @@
 import { Request, Response } from 'express';
-import stripe from '../utils/stripe';
-import Stripe from 'stripe';
-import { saveSubscriptionToFirestore } from '../services/saveSubscription';
+import { createSubscriptionPaid } from '../services/createSubscriptionPaid';
+import { createSubscriptionWithTrial } from '../services/createSubscriptionWithTrial';
+
+const BASIC_PLAN_PRICE_ID = process.env.STRIPE_BASIC_PLAN_ID!;
 
 export const createSubscription = async (req: Request, res: Response) => {
+    const { email, name, priceId } = req.body;
+    if (!email || !name || !priceId) {
+        return res.status(400).json({ error: 'Campos obrigatórios ausentes.' });
+    }
+
     try {
-        const { priceId, name, email } = req.body;
-
-        if (!priceId || !email || !name) {
-            res.status(400).json({ error: 'Campos obrigatórios faltando' });
-            return;
+        if (priceId === BASIC_PLAN_PRICE_ID) {
+            return createSubscriptionWithTrial(req, res);
+        } else {
+            return createSubscriptionPaid(req, res);
         }
-
-        // 1. Busca o cliente pelo email
-        const customers = await stripe.customers.list({
-            email,
-            limit: 1,
-        });
-
-        let customer = customers.data[0];
-
-        // 2. Se não existe, cria novo cliente
-        if (!customer) {
-            customer = await stripe.customers.create({ email, name });
-        }
-
-        // 3. Busca assinaturas do cliente
-        const subscriptions = await stripe.subscriptions.list({
-            customer: customer.id,
-            status: 'all',
-            limit: 1,
-        });
-
-        const existingSub = subscriptions.data[0];
-
-        // 4. Verifica se o cliente já tem uma assinatura ativa
-        if (
-            existingSub &&
-            existingSub.status === 'active' &&
-            !existingSub.cancel_at_period_end
-        ) {
-            res.status(400).json({ error: 'Este e-mail já possui uma assinatura ativa.' });
-            return;
-        }
-
-        // Cria a assinatura incompleta e expande confirmation_secret
-        const subscription = await stripe.subscriptions.create({
-            customer: customer.id,
-            items: [{ price: priceId }],
-            payment_behavior: 'default_incomplete',
-            payment_settings: {
-                save_default_payment_method: 'on_subscription',
-                payment_method_types: ['card'],
-            },
-            expand: ['latest_invoice.confirmation_secret'],
-        });
-
-        const latestInvoice = subscription.latest_invoice as Stripe.Invoice;
-
-        if (!latestInvoice?.confirmation_secret?.client_secret) {
-            res.status(400).json({ error: 'Client secret não encontrado na confirmação da fatura.' });
-            return;
-        }
-
-        const clientSecret = latestInvoice.confirmation_secret.client_secret;
-
-        await saveSubscriptionToFirestore({
-            customerId: customer.id,
-            subscriptionId: subscription.id,
-            email,
-            name
-        });
-
-        // 5. Aguarda 300ms para garantir visibilidade no Firestore (opcional, mas seguro)
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        res.json({
-            subscriptionId: subscription.id,
-            clientSecret,
-            isSetupIntent: false,
-        });
-
-    } catch (error: any) {
-        console.error('Erro ao criar assinatura:', error.message);
-        res.status(500).json({ error: error.message });
-        return;
+    } catch (err: any) {
+        console.error(err);
+        return res.status(500).json({ error: err.message });
     }
 };
+
+// export const createSubscription = async (req: Request, res: Response) => {
+//     const { email, name, priceId } = req.body;
+//     if (!email || !name || !priceId) {
+//         return res.status(400).json({ error: 'Campos obrigatórios ausentes.' });
+//     }
+//     try {
+//         // Pegar ou criar cliente
+//         let customer = (await stripe.customers.list({ email, limit: 1 })).data[0];
+//         if (!customer) {
+//             customer = await stripe.customers.create({ email, name });
+//         }
+
+//         // Verificar uso de trial
+//         const previousSubs = await stripe.subscriptions.list({
+//             customer: customer.id,
+//             limit: 10,
+//             status: 'all',
+//         });
+//         const hasUsedTrial = previousSubs.data.some(sub => sub.trial_end !== null);
+
+//         const userQuery = await admin.firestore().collection('users')
+//             .where('email', '==', email)
+//             .where('hasUsedTrial', '==', true)
+//             .limit(1)
+//             .get();
+//         const alreadyUsedTrial = hasUsedTrial || !userQuery.empty;
+
+//         if (priceId === BASIC_PLAN_PRICE_ID && alreadyUsedTrial) {
+//             return res.status(403).json({
+//                 error: 'Você já usou seu período de teste gratuito.',
+//             });
+//         }
+
+//         const isBasicWithTrial = priceId === BASIC_PLAN_PRICE_ID && !alreadyUsedTrial;
+
+//         const subParams: any = {
+//             customer: customer.id,
+//             items: [{ price: priceId }],
+//             payment_behavior: 'default_incomplete',
+//             expand: isBasicWithTrial
+//                 ? ['pending_setup_intent']
+//                 : ['latest_invoice.confirmation_secret'],
+//         };
+
+//         if (isBasicWithTrial) {
+//             subParams.trial_period_days = 7;
+//         } else {
+//             subParams.payment_settings = {
+//                 save_default_payment_method: 'on_subscription',
+//                 payment_method_types: ['card'],
+//             };
+//         }
+
+//         const subscription = await stripe.subscriptions.create(subParams);
+
+//         let clientSecret: string = '';
+
+//         if (isBasicWithTrial) {
+//             // Plano grátis com trial
+//             const setupIntent = subscription.pending_setup_intent as Stripe.SetupIntent | null;
+//             if (!setupIntent) throw new Error('Não foi possível obter SetupIntent');
+//             clientSecret = setupIntent.client_secret as string;
+//         } else if (subscription.latest_invoice && typeof subscription.latest_invoice !== 'string') {
+//             // Plano pago
+//             const latestInvoice = subscription.latest_invoice as Stripe.Invoice;
+//             const confirmationSecret = latestInvoice?.confirmation_secret?.client_secret;
+//             if (!confirmationSecret) throw new Error('Não foi possível obter confirmation_secret');
+//             clientSecret = confirmationSecret;
+//         }
+
+//         await saveSubscriptionToFirestore({
+//             customerId: customer.id,
+//             subscriptionId: subscription.id,
+//             email,
+//             name,
+//         });
+
+//         await new Promise(resolve => setTimeout(resolve, 300));
+
+//         return res.json({
+//             clientSecret,
+//             subscriptionId: subscription.id,
+//             customerId: customer.id,
+//         });
+//     } catch (err: any) {
+//         console.error(err);
+//         return res.status(500).json({ error: err.message });
+//     }
+// };
