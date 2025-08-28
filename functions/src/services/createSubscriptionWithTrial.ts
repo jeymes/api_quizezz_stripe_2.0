@@ -11,21 +11,17 @@ export const createSubscriptionWithTrial = async (req: Request, res: Response) =
     }
 
     try {
-        // Buscar ou criar cliente
         let customer = (await stripe.customers.list({ email, limit: 1 })).data[0];
+
         if (!customer) {
             customer = await stripe.customers.create({ email, name });
+            if (!customer || !customer.id) throw new Error('Falha ao criar cliente no Stripe.');
         }
 
-        // Antes de criar assinatura:
+
+        // Verifica se já usou trial
         const previousSubs = await stripe.subscriptions.list({ customer: customer.id, limit: 10, status: 'all' });
         const hasUsedTrial = previousSubs.data.some(sub => sub.trial_end !== null);
-
-        if (hasUsedTrial) {
-            return res.status(403).json({
-                error: 'Você já usou seu período de teste gratuito. Faça a renovação para continuar aproveitando nossos recursos.'
-            });
-        }
 
         const userDoc = await admin.firestore().collection('users')
             .where('email', '==', email)
@@ -33,24 +29,28 @@ export const createSubscriptionWithTrial = async (req: Request, res: Response) =
             .limit(1)
             .get();
 
-        if (!userDoc.empty) {
+        if (hasUsedTrial || !userDoc.empty) {
             return res.status(403).json({
-                error: 'Você já usou seu período de teste gratuito. Faça a renovação para continuar aproveitando nossos recursos.'
+                error: 'Você já usou seu período de teste gratuito.'
             });
         }
 
-        // Criar assinatura com 7 dias de teste (trial)
         const subscription = await stripe.subscriptions.create({
             customer: customer.id,
             items: [{ price: priceId }],
             trial_period_days: 7,
-            payment_behavior: 'default_incomplete', // Espera confirmação do método de pagamento
-            expand: ['pending_setup_intent'], // Pega o setup intent para salvar cartão
+            payment_behavior: 'default_incomplete',
+            expand: ['pending_setup_intent'],
         });
 
+        if (!subscription || !subscription.id) {
+            throw new Error('Falha ao criar assinatura.');
+        }
+
+
         const setupIntent = subscription.pending_setup_intent;
-        if (!setupIntent || typeof setupIntent === 'string') {
-            return res.status(500).json({ error: 'Não foi possível obter o SetupIntent da assinatura.' });
+        if (!setupIntent || typeof setupIntent === 'string' || !setupIntent.client_secret) {
+            throw new Error('Falha ao obter SetupIntent da assinatura.');
         }
 
         await saveSubscriptionToFirestore({
@@ -60,15 +60,14 @@ export const createSubscriptionWithTrial = async (req: Request, res: Response) =
             name
         });
 
-        await new Promise(resolve => setTimeout(resolve, 300));
-
         return res.json({
             clientSecret: setupIntent.client_secret,
             subscriptionId: subscription.id,
             customerId: customer.id,
         });
+
     } catch (err: any) {
-        console.error(err);
-        return res.status(500).json({ error: err.message });
+        console.error('[Trial] Erro ao criar assinatura trial:', err);
+        return res.status(500).json({ error: err.message || 'Erro interno no servidor.' });
     }
 };
