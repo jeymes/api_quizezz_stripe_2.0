@@ -6,12 +6,19 @@ import webhookRoutes from './routes/webhook';
 import createCustomerRouter from './routes/createCustomer';
 import renewSubscriptionInvoiceRoutes from './routes/renewSubscriptionInvoice';
 import cancelSubscriptionRoutes from './routes/cancelSubscription';
-
+import { authenticateToken } from './authMiddleware';
+import saveDefaultPaymentMethodRoutes from './routes/saveDefaultPaymentMethod';
+import webhookRoutesTeste from './routes/webhookTeste';
 
 const app = express();
 
-// Webhook precisa ser tratado com raw ANTES dos outros middlewares
+// Webhook precisa ser tratado com raw ANTES de express.json
 app.use('/api/webhook', express.raw({ type: 'application/json' }));
+app.use('/api/webhookTeste', express.raw({ type: 'application/json' }));
+
+// Webhook SEM autenticação (já foi definido acima)
+app.use('/api/webhook', webhookRoutes);
+app.use('/api/webhookTeste', webhookRoutesTeste);
 
 // Middlewares globais
 const allowedOrigins = [
@@ -32,15 +39,20 @@ app.use(cors({
     credentials: true,
 }));
 
-app.use(express.json());
+app.use(express.json()); // Precisa vir depois do .raw()
 
-// Rotas
+// 🔐 Autenticação para proteger TODAS as rotas, exceto webhook
+app.use('/api', authenticateToken);
+
+// Rotas protegidas
 app.use('/api', subscriptionRoutes);
 app.use('/api', productsRoutes);
-app.use('/api', webhookRoutes);
 app.use('/api', createCustomerRouter);
 app.use('/api', renewSubscriptionInvoiceRoutes);
 app.use('/api', cancelSubscriptionRoutes);
+app.use('/api', subscriptionRoutes);
+app.use('/api', saveDefaultPaymentMethodRoutes);
+
 
 export default app;
 
