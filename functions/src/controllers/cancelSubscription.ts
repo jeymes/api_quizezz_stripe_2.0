@@ -1,16 +1,35 @@
 import { Request, Response } from 'express';
 import stripe from '../utils/stripe';
+import { sendCancelFeedbackEmail } from '../utils/cancelEmail';
+import { FieldValue } from "firebase-admin/firestore";
+import admin from "../utils/firebase";
 
 export const cancelSubscription = async (req: Request, res: Response) => {
-    const { subscriptionId } = req.body;
+    const db = admin.firestore();
 
-    if (!subscriptionId) {
-        res.status(400).json({ error: 'subscriptionId é obrigatório' });
+    const { subscriptionId, email, name, userId, reason } = req.body;
+
+    if (!subscriptionId || !email || !name || !userId || !reason) {
+        res.status(400).json({ error: "Campos obrigatórios: subscriptionId, email, name, userId e reason" });
         return;
     }
 
     try {
         const canceledSubscription = await stripe.subscriptions.cancel(subscriptionId);
+
+        sendCancelFeedbackEmail(email, name).catch((err) => {
+            console.error("Erro ao enviar e-mail de cancelamento:", err);
+        });
+
+        await sendCancelFeedbackEmail(email, name);
+
+        await db.collection("cancelFeedback").add({
+            userId,
+            name,
+            email,
+            reason,
+            createdAt: FieldValue.serverTimestamp(),
+        });
 
         res.json({
             message: 'Assinatura cancelada com sucesso',

@@ -24,7 +24,7 @@ app.use('/api/webhookTeste', webhookRoutesTeste);
 const allowedOrigins = [
     'http://localhost:3000',
     'http://localhost:5173',
-    'https://quizezz.com.br',
+    'https://www.quizezz.com.br',
     'https://hosting-quizezz--quizezz-b0738.us-central1.hosted.app',
 ];
 

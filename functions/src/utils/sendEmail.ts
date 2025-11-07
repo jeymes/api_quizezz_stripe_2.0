@@ -27,7 +27,7 @@ export const sendWelcomeEmail = async (email: string, name: string, password: st
       </a>
       <p>Link direto: <a href="https://quizezz.com.br/signin">https://quizezz.com.br/signin</a></p>
       <p>Recomendamos que altere sua senha após o primeiro acesso.</p>
-      <p>Abraços,<br>Sua equipe</p>
+      <p>Abraços,<br>Quizezz</p>
   </div>
 `,
   };
