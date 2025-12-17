@@ -72,9 +72,6 @@ export const createSubscriptionPaid = async (req: Request, res: Response) => {
             name
         });
 
-        // 5. Aguarda 300ms para garantir visibilidade no Firestore (opcional, mas seguro)
-        await new Promise(resolve => setTimeout(resolve, 300));
-
         res.json({
             subscriptionId: subscription.id,
             clientSecret,

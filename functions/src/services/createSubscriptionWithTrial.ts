@@ -18,7 +18,6 @@ export const createSubscriptionWithTrial = async (req: Request, res: Response) =
             if (!customer || !customer.id) throw new Error('Falha ao criar cliente no Stripe.');
         }
 
-
         // Verifica se já usou trial
         const previousSubs = await stripe.subscriptions.list({ customer: customer.id, limit: 10, status: 'all' });
         const hasUsedTrial = previousSubs.data.some(sub => sub.trial_end !== null);
@@ -41,12 +40,15 @@ export const createSubscriptionWithTrial = async (req: Request, res: Response) =
             trial_period_days: 7,
             payment_behavior: 'default_incomplete',
             expand: ['pending_setup_intent'],
+            metadata: {
+                email,
+                name,
+            },
         });
 
         if (!subscription || !subscription.id) {
             throw new Error('Falha ao criar assinatura.');
         }
-
 
         const setupIntent = subscription.pending_setup_intent;
         if (!setupIntent || typeof setupIntent === 'string' || !setupIntent.client_secret) {
