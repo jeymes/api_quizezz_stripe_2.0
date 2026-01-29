@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { createSubscriptionPaid } from '../services/createSubscriptionPaid';
-import { createSubscriptionWithTrial } from '../services/createSubscriptionWithTrial';
+import { createTrialSetup } from '../services/createTrialSetup';
 
 const BASIC_PLAN_PRICE_ID = process.env.BASIC_PLAN_PRICE_ID!;
 
@@ -16,7 +16,7 @@ export const createSubscription = async (req: Request, res: Response) => {
 
     try {
         if (priceId === BASIC_PLAN_PRICE_ID) {
-            return createSubscriptionWithTrial(req, res);
+            return createTrialSetup(req, res);
         } else {
             return createSubscriptionPaid(req, res);
         }
