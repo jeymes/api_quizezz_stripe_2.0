@@ -9,6 +9,8 @@ import cancelSubscriptionRoutes from './routes/cancelSubscription';
 import { authenticateToken } from './authMiddleware';
 import saveDefaultPaymentMethodRoutes from './routes/saveDefaultPaymentMethod';
 import webhookRoutesTeste from './routes/webhookTeste';
+import createSubscriptionWithTrialRoutes from './routes/createSubscriptionWithTrial';
+import deleteUsersRoutes from './routes/deleteUsers';
 
 const app = express();
 
@@ -52,6 +54,8 @@ app.use('/api', renewSubscriptionInvoiceRoutes);
 app.use('/api', cancelSubscriptionRoutes);
 app.use('/api', subscriptionRoutes);
 app.use('/api', saveDefaultPaymentMethodRoutes);
+app.use('/api', createSubscriptionWithTrialRoutes);
+app.use('/api', deleteUsersRoutes);
 
 
 export default app;
